@@ -1,0 +1,19 @@
+
+# Ubuntu
+sudo apt-get install build-essential
+
+# CentOS
+sudo yum groupinstall -y 'Development Tools'
+
+
+# Can't locate Time/HiRes.pm CPAN error on CentOS 7
+yum install -y perl-Time-HiRes
+
+# HDD
+yum install -y smartmontools
+
+
+# github: https://github.com/kdlucas/byte-unixbench
+git clone https://github.com/kdlucas/byte-unixbench.git
+
+
