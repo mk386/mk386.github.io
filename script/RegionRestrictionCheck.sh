@@ -30,20 +30,18 @@ Font_White="\033[37m";
 Font_Suffix="\033[0m";
 
 CountRunTimes(){
-TodayRunTimes=$(curl -s --max-time 10 "https://hits.seeyoufarm.com/api/count/incr/badge.svg?url=https%3A%2F%2Fraw.githubusercontent.com%2Flmc999%2FRegionRestrictionCheck%2Fmain%2Fcheck.sh&count_bg=%2379C83D&title_bg=%2300B1FF&icon=&icon_color=%23E7E7E7&title=script+run+times&edge_flat=false" | tac | sed -n '3p' | awk '{print $6}' 2> /dev/null)
-
+RunTimes=$(curl -s --max-time 10 "https://hits.seeyoufarm.com/api/count/incr/badge.svg?url=https%3A%2F%2Fraw.githubusercontent.com%2Flmc999%2FRegionRestrictionCheck%2Fmain%2Fcheck.sh&count_bg=%2379C83D&title_bg=%2300B1FF&icon=&icon_color=%23E7E7E7&title=script+run+times&edge_flat=false" > /tmp/couting.txt)
+TodayRunTimes=$(cat /tmp/couting.txt | tac | sed -n '3p' | awk '{print $6}')
+TotalRunTimes=$(cat /tmp/couting.txt | tac | sed -n '3p' | awk '{print $8}')
+rm -rf /tmp/couting.txt
 }
 CountRunTimes
 
 checkos(){
 
 	os_version=$(grep 'VERSION_ID' /etc/os-release | cut -d '"' -f 2 | tr -d '.')
-	if [[ "$os_version" == "2004" ]];then
+	if [[ "$os_version" == "2004" ]] || [[ "$os_version" == "10" ]] || [[ "$os_version" == "11" ]];then
 		ssll="-k --ciphers DEFAULT@SECLEVEL=1"
-	elif [[ "$os_version" == "10" ]];then	
-		ssll="-k --ciphers DEFAULT@SECLEVEL=1"
-	else
-		ssll=""
 	fi
 }
 checkos	
@@ -65,7 +63,6 @@ check_dependencies(){
 	os_detail=$(cat /etc/os-release)
 	if_debian=$(echo $os_detail | grep 'ebian')
 	if_redhat=$(echo $os_detail | grep 'rhel')
-	os_version=$(grep 'VERSION_ID' /etc/os-release | cut -d '"' -f 2 | tr -d '.')
 	if [ -n "$if_debian" ];then
 		InstallMethod="apt install"
 	elif [ -n "$if_redhat" ] && [[ "$os_version" -gt 7 ]];then
@@ -366,41 +363,40 @@ function MediaUnlockTest_YouTube_Region() {
 }
 
 function MediaUnlockTest_DisneyPlus() {
-	disneycontent=$(curl -s --max-time 10 "https://raw.githubusercontent.com/lmc999/RegionRestrictionCheck/main/cookies" | sed -n '7p')
-    echo -n -e " DisneyPlus:\t\t\t\t->\c";
-    local tmpresult=$(curl -${1} -X POST --user-agent "${UA_Browser}" -sSL --max-time 10 "https://disney.api.edge.bamgrid.com/graph/v1/device/graphql" -H "authorization: ZGlzbmV5JmJyb3dzZXImMS4wLjA.Cu56AgSfBTDag5NiRA81oLHkDZfu5L3CKadnefEAY84" -d "$disneycontent" 2>&1)
+	echo -n -e " DisneyPlus:\t\t\t\t->\c";
+    local disneycookie=$(curl -s --max-time 10 "https://raw.githubusercontent.com/lmc999/RegionRestrictionCheck/main/cookies" | sed -n '1p')
+	local TokenContent=$(curl -${1} --user-agent "${UA_Browser}" -s --max-time 10 -X POST "https://global.edge.bamgrid.com/token" -H "authorization: Bearer ZGlzbmV5JmJyb3dzZXImMS4wLjA.Cu56AgSfBTDag5NiRA81oLHkDZfu5L3CKadnefEAY84" -d "$disneycookie")
+	local isBanned=$(echo $TokenContent | python -m json.tool 2> /dev/null | grep 'forbidden-location')
+	local is403=$(echo $TokenContent | grep '403 ERROR')
+	
+	if [ -n "$isBanned" ] || [ -n "$is403" ];then
+		echo -n -e "\r DisneyPlus:\t\t\t\t${Font_Red}No${Font_Suffix}\n"
+		return;
+	fi
+	
+	local fakecontent=$(curl -s --max-time 10 "https://raw.githubusercontent.com/lmc999/RegionRestrictionCheck/main/cookies" | sed -n '8p')
+	local refreshToken=$(echo $TokenContent | python -m json.tool 2> /dev/null | grep 'refresh_token' | awk '{print $2}' | cut -f2 -d'"')
+    local disneycontent=$(echo $fakecontent | sed "s/ILOVEDISNEY/${refreshToken}/g")
+	local tmpresult=$(curl -${1} -X POST --user-agent "${UA_Browser}" -sSL --max-time 10 "https://disney.api.edge.bamgrid.com/graph/v1/device/graphql" -H "authorization: ZGlzbmV5JmJyb3dzZXImMS4wLjA.Cu56AgSfBTDag5NiRA81oLHkDZfu5L3CKadnefEAY84" -d "$disneycontent" 2>&1)
+	local previewcheck=$(curl -s -o /dev/null -L --max-time 10 -w '%{url_effective}\n' "https://disneyplus.com" | grep preview)
+	local isUnabailable=$(echo $previewcheck | grep 'unavailable')	
     
     if [[ "$tmpresult" == "curl"* ]];then
         echo -n -e "\r DisneyPlus:\t\t\t\t${Font_Red}Failed (Network Connection)${Font_Suffix}\n"
         return;
     fi
 	
-	local previewcheck=$(curl -s -o /dev/null -L --max-time 10 -w '%{url_effective}\n' "https://disneyplus.com" | grep preview)
-	local isUnabailable=$(echo $previewcheck | grep 'unavailable')
-	local isAllowed=$(echo $tmpresult | python -m json.tool 2> /dev/null | grep 'countryCode' | cut -f4 -d'"')
-	local isBanned=$(echo $tmpresult | python -m json.tool 2> /dev/null | grep 'forbidden-location')
-	local is403=$(echo $tmpresult | grep '403 ERROR')
+	local region=$(echo $tmpresult | python -m json.tool 2> /dev/null | grep 'countryCode' | cut -f4 -d'"')
 
-    if [[ "$isAllowed" == "JP" ]];then
-		echo -n -e "\r DisneyPlus:\t\t\t\t${Font_Green}Yes (Region: JP)${Font_Suffix}\n"
+    if [ -n "$region" ] && [ -n "$previewcheck" ] && [ -z "$isUnabailable" ];then
+		echo -n -e "\r DisneyPlus:\t\t\t\t${Font_Yellow}Available For [Disney+ $region] Soon${Font_Suffix}\n"
 		return;
-	elif [ -n "$isAllowed" ] && [ -z "$previewcheck" ];then
-		local region=$isAllowed
+	elif [ -n "$previewcheck" ] && [ -n "$isUnabailable" ];then
+		echo -n -e "\r DisneyPlus:\t\t\t\t${Font_Red}No${Font_Suffix}\n"
+		return;
+	elif [ -n "$region" ];then
 		echo -n -e "\r DisneyPlus:\t\t\t\t${Font_Green}Yes (Region: $region)${Font_Suffix}\n"
 		return;
-	elif [ -n "$isAllowed" ] && [ -n "$previewcheck" ] && [ -z "$isUnabailable" ];then
-		local region=$isAllowed
-		echo -n -e "\r DisneyPlus:\t\t\t\t${Font_Yellow}Available For [Disney+ $region] Soon${Font_Suffix}\n"
-		return;	
-	elif [ -n "$isAllowed" ] && [ -n "$previewcheck" ] && [ -n "$isUnabailable" ];then
-		echo -n -e "\r DisneyPlus:\t\t\t\t${Font_Red}No${Font_Suffix}\n"
-		return;	
-	elif [ -n "$isBanned" ];then
-		echo -n -e "\r DisneyPlus:\t\t\t\t${Font_Red}No${Font_Suffix}\n"
-		return;
-	elif [ -n "$is403" ];then
-		echo -n -e "\r DisneyPlus:\t\t\t\t${Font_Red}No${Font_Suffix}\n"
-		return;	
 	else
 		echo -n -e "\r DisneyPlus:\t\t\t\t${Font_Red}Failed${Font_Suffix}\n"
 		return;
@@ -475,6 +471,9 @@ function MediaUnlockTest_NowE() {
 	if [[ "$result" == "SUCCESS" ]]; then
 		echo -n -e "\r Now E:\t\t\t\t\t${Font_Green}Yes${Font_Suffix}\n"
 		return;
+	elif [[ "$result" == "PRODUCT_INFORMATION_INCOMPLETE" ]]; then
+		echo -n -e "\r Now E:\t\t\t\t\t${Font_Green}Yes${Font_Suffix}\n"
+		return;	
     elif [[ "$result" == "GEO_CHECK_FAIL" ]]; then
 		echo -n -e "\r Now E:\t\t\t\t\t${Font_Red}No${Font_Suffix}\n"
 		return;
@@ -1285,8 +1284,7 @@ function MediaUnlockTest_FuboTV() {
 
 function MediaUnlockTest_Fox() {
     echo -n -e " Fox:\t\t\t\t\t->\c";
-    # 测试，连续请求两次 (单独请求一次可能会返回35, 第二次开始变成0)
-    local result=$(curl -${1} ${ssll} -fsL --write-out %{http_code} --output /dev/null --max-time 10 "https://foxvideo.akamaized.net/pulsar-test/p-2mb.png?t=y9t0kj")
+    local result=$(curl -${1} ${ssll} -fsL --write-out %{http_code} --output /dev/null --max-time 10 "https://x-live-fox-stgec.uplynk.com/ausw/slices/8d1/d8e6eec26bf544f084bad49a7fa2eac5/8d1de292bcc943a6b886d029e6c0dc87/G00000000.ts?pbs=c61e60ee63ce43359679fb9f65d21564&cloud=aws&si=0")
     if [ "$result" = "000" ]; then
         echo -n -e "\r FOX:\t\t\t\t\t${Font_Red}Failed (Network Connection)${Font_Suffix}\n"
     elif [ "$result" = "200" ]; then
@@ -2151,8 +2149,9 @@ function CheckV6() {
 			isv6=0
 			echo -e "${Font_SkyBlue}User Choose to Test Only IPv4 Results, Skipping IPv6 Testing...${Font_Suffix}"
 		else	
-			check6=$(curl -fsL --write-out %{http_code} --output /dev/null --max-time 10 ipv6.google.com)
-			if [[ "$check6" -ne "000" ]];then
+			check6_1=$(curl -fsL --write-out %{http_code} --output /dev/null --max-time 10 ipv6.google.com)
+			check6_2=$(curl -fsL --write-out %{http_code} --output /dev/null --max-time 10 ipv6.ip.sb)
+			if [[ "$check6_1" -ne "000" ]] || [[ "$check6_2" -ne "000" ]];then
 				echo ""
 				echo ""
 				echo -e " ${Font_SkyBlue}** Checking Results Under IPv6${Font_Suffix} "
@@ -2194,11 +2193,11 @@ function Goodbye(){
 	if [[ "$language" == "English" ]];then
 		echo -e "${Font_Green}Testing Done! Thanks for Using This Script! ${Font_Suffix}";
 		echo -e ""
-		echo -e "${Font_Yellow}Number of Script Runs for Today：$TodayRunTimes ${Font_Suffix}"
+		echo -e "${Font_Yellow}Number of Script Runs for Today：${TodayRunTimes}; Total Number of Script Runs: ${TotalRunTimes} ${Font_Suffix}"
 	else	
 		echo -e "${Font_Green}本次测试已结束，感谢使用此脚本 ${Font_Suffix}";
 		echo -e ""
-		echo -e "${Font_Yellow}检测脚本当天运行次数：$TodayRunTimes ${Font_Suffix}"
+		echo -e "${Font_Yellow}检测脚本当天运行次数：${TodayRunTimes}; 共计运行次数：${TotalRunTimes} ${Font_Suffix}"
 	fi	
 }
 
