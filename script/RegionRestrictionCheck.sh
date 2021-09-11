@@ -30,16 +30,21 @@ Font_White="\033[37m";
 Font_Suffix="\033[0m";
 
 CountRunTimes(){
-RunTimes=$(curl -s --max-time 10 "https://hits.seeyoufarm.com/api/count/incr/badge.svg?url=https%3A%2F%2Fraw.githubusercontent.com%2Flmc999%2FRegionRestrictionCheck%2Fmain%2Fcheck.sh&count_bg=%2379C83D&title_bg=%2300B1FF&icon=&icon_color=%23E7E7E7&title=script+run+times&edge_flat=false" > /tmp/couting.txt)
-TodayRunTimes=$(cat /tmp/couting.txt | tac | sed -n '3p' | awk '{print $6}')
-TotalRunTimes=$(cat /tmp/couting.txt | tac | sed -n '3p' | awk '{print $8}')
-rm -rf /tmp/couting.txt
+RunTimes=$(curl -s --max-time 10 "https://hits.seeyoufarm.com/api/count/incr/badge.svg?url=https%3A%2F%2Fraw.githubusercontent.com%2Flmc999%2FRegionRestrictionCheck%2Fmain%2Fcheck.sh&count_bg=%2379C83D&title_bg=%2300B1FF&icon=&icon_color=%23E7E7E7&title=script+run+times&edge_flat=false" > ~/couting.txt)
+TodayRunTimes=$(cat ~/couting.txt | tac | sed -n '3p' | awk '{print $6}')
+TotalRunTimes=$(cat ~/couting.txt | tac | sed -n '3p' | awk '{print $8}')
+rm -rf ~/couting.txt
 }
 CountRunTimes
 
 checkos(){
-
-	os_version=$(grep 'VERSION_ID' /etc/os-release | cut -d '"' -f 2 | tr -d '.')
+	ifTermux=$(echo $PWD | grep termux)
+	if [ -n "$ifTermux" ];then
+		os_version=Termux
+	else	
+		os_version=$(grep 'VERSION_ID' /etc/os-release | cut -d '"' -f 2 | tr -d '.')
+	fi
+	
 	if [[ "$os_version" == "2004" ]] || [[ "$os_version" == "10" ]] || [[ "$os_version" == "11" ]];then
 		ssll="-k --ciphers DEFAULT@SECLEVEL=1"
 	fi
@@ -60,39 +65,46 @@ checkCPU
 
 check_dependencies(){
 
-	os_detail=$(cat /etc/os-release)
+	os_detail=$(cat /etc/os-release 2> /dev/null)
 	if_debian=$(echo $os_detail | grep 'ebian')
 	if_redhat=$(echo $os_detail | grep 'rhel')
 	if [ -n "$if_debian" ];then
-		InstallMethod="apt install"
+		InstallMethod="apt"
 	elif [ -n "$if_redhat" ] && [[ "$os_version" -gt 7 ]];then
-		InstallMethod="dnf install"
+		InstallMethod="dnf"
 	elif [ -n "$if_redhat" ] && [[ "$os_version" -lt 8 ]];then
-		InstallMethod="yum install"
+		InstallMethod="yum"
+	elif [[ "$os_version" == "Termux" ]];then
+		InstallMethod="pkg"
 	fi
 	
 	python -V > /dev/null 2>&1
 		if [[ "$?" -ne "0" ]];then
 			python3 -V > /dev/null 2>&1
-			if [[ "$?" -ne "0" ]];then
+			if [[ "$?" -eq "0" ]];then
 				python3_patch=$(which python3)
 				ln -s $python3_patch /usr/bin/python > /dev/null 2>&1
 			else
 				if [ -n "$if_debian" ];then
 					echo -e "${Font_Green}Installing python${Font_Suffix}" 
-					apt update  > /dev/null 2>&1
-					apt install python -y  > /dev/null 2>&1
-					
+					$InstallMethod update  > /dev/null 2>&1
+					$InstallMethod install python -y  > /dev/null 2>&1
 				elif [ -n "$if_redhat" ];then
 					echo -e "${Font_Green}Installing python${Font_Suffix}"
 					if [[ "$os_version" -gt 7 ]];then
-						dnf install python3 -y > /dev/null 2>&1
+						$InstallMethod update  > /dev/null 2>&1
+						$InstallMethod install python3 -y > /dev/null 2>&1
 						python3_patch=$(which python3)
 						ln -s $python3_patch /usr/bin/python
 					else
-						yum install python -y > /dev/null 2>&1
+						$InstallMethod update  > /dev/null 2>&1
+						$InstallMethod install python -y > /dev/null 2>&1
 					fi	
 					
+				elif [[ "$os_version" == "Termux" ]];then
+					echo -e "${Font_Green}Installing python${Font_Suffix}"
+					$InstallMethod update -y > /dev/null 2>&1
+					$InstallMethod install python -y > /dev/null 2>&1
 					
 				fi
 			fi	
@@ -100,12 +112,18 @@ check_dependencies(){
 	
 	dig -v  > /dev/null 2>&1
 	if [[ "$?" -ne "0" ]];then
-		if [[ "$InstallMethod" == "apt install" ]];then
+		if [[ "$InstallMethod" == "apt" ]];then
 			echo -e "${Font_Green}Installing dnsutils${Font_Suffix}"
-			$InstallMethod dnsutils -y > /dev/null 2>&1
-		else
+			$InstallMethod update  > /dev/null 2>&1
+			$InstallMethod install dnsutils -y > /dev/null 2>&1
+		elif [[ "$InstallMethod" == "yum" ]];then
 			echo -e "${Font_Green}Installing bind-utils${Font_Suffix}"
-			$InstallMethod bind-utils -y > /dev/null 2>&1
+			$InstallMethod update  > /dev/null 2>&1
+			$InstallMethod install bind-utils -y > /dev/null 2>&1
+		elif [[ "$InstallMethod" == "pkg" ]];then
+			echo -e "${Font_Green}Installing dnsutils${Font_Suffix}"
+			$InstallMethod update -y > /dev/null 2>&1
+			$InstallMethod install dnsutils -y > /dev/null 2>&1	
 		fi
 	fi	
 }		
@@ -377,8 +395,8 @@ function MediaUnlockTest_DisneyPlus() {
 	local fakecontent=$(curl -s --max-time 10 "https://raw.githubusercontent.com/lmc999/RegionRestrictionCheck/main/cookies" | sed -n '8p')
 	local refreshToken=$(echo $TokenContent | python -m json.tool 2> /dev/null | grep 'refresh_token' | awk '{print $2}' | cut -f2 -d'"')
     local disneycontent=$(echo $fakecontent | sed "s/ILOVEDISNEY/${refreshToken}/g")
-	local tmpresult=$(curl -${1} -X POST --user-agent "${UA_Browser}" -sSL --max-time 10 "https://disney.api.edge.bamgrid.com/graph/v1/device/graphql" -H "authorization: ZGlzbmV5JmJyb3dzZXImMS4wLjA.Cu56AgSfBTDag5NiRA81oLHkDZfu5L3CKadnefEAY84" -d "$disneycontent" 2>&1)
-	local previewcheck=$(curl -s -o /dev/null -L --max-time 10 -w '%{url_effective}\n' "https://disneyplus.com" | grep preview)
+	local tmpresult=$(curl -${1} --user-agent "${UA_Browser}" -X POST -sSL --max-time 10 "https://disney.api.edge.bamgrid.com/graph/v1/device/graphql" -H "authorization: ZGlzbmV5JmJyb3dzZXImMS4wLjA.Cu56AgSfBTDag5NiRA81oLHkDZfu5L3CKadnefEAY84" -d "$disneycontent" 2>&1)
+	local previewcheck=$(curl -${1} -s -o /dev/null -L --max-time 10 -w '%{url_effective}\n' "https://disneyplus.com" | grep preview)
 	local isUnabailable=$(echo $previewcheck | grep 'unavailable')	
     
     if [[ "$tmpresult" == "curl"* ]];then
@@ -387,15 +405,22 @@ function MediaUnlockTest_DisneyPlus() {
     fi
 	
 	local region=$(echo $tmpresult | python -m json.tool 2> /dev/null | grep 'countryCode' | cut -f4 -d'"')
-
-    if [ -n "$region" ] && [ -n "$previewcheck" ] && [ -z "$isUnabailable" ];then
+	local inSupportedLocation=$(echo $tmpresult | python -m json.tool 2> /dev/null | grep 'inSupportedLocation' | awk '{print $2}' | cut -f1 -d',')
+	
+    if [[ "$region" == "JP" ]];then
+		echo -n -e "\r Disney+:\t\t\t\t${Font_Green}Yes (Region: JP)${Font_Suffix}\n"
+		return;
+	elif [ -n "$region" ] && [[ "$inSupportedLocation" == "false" ]] && [ -z "$isUnabailable" ];then
 		echo -n -e "\r Disney+:\t\t\t\t${Font_Yellow}Available For [Disney+ $region] Soon${Font_Suffix}\n"
 		return;
-	elif [ -n "$previewcheck" ] && [ -n "$isUnabailable" ];then
+	elif [ -n "$region" ] && [ -n "$isUnavailable" ];then
 		echo -n -e "\r Disney+:\t\t\t\t${Font_Red}No${Font_Suffix}\n"
 		return;
-	elif [ -n "$region" ];then
+	elif [ -n "$region" ] && [[ "$inSupportedLocation" == "true" ]];then
 		echo -n -e "\r Disney+:\t\t\t\t${Font_Green}Yes (Region: $region)${Font_Suffix}\n"
+		return;
+	elif [ -z "$region" ];then
+		echo -n -e "\r Disney+:\t\t\t\t${Font_Red}No${Font_Suffix}\n"
 		return;
 	else
 		echo -n -e "\r Disney+:\t\t\t\t${Font_Red}Failed${Font_Suffix}\n"
@@ -744,29 +769,29 @@ function MediaUnlockTest_ITVHUB() {
 
 function MediaUnlockTest_iQYI_Region(){
     echo -n -e " iQyi Oversea Region:\t\t\t->\c";
-    curl -${1} ${ssll} -s -I --max-time 10 "https://www.iq.com/" > /tmp/iqiyi
+    curl -${1} ${ssll} -s -I --max-time 10 "https://www.iq.com/" > ~/iqiyi
     
     if [ $? -eq 1 ];then
         echo -n -e "\r iQyi Oversea Region:\t\t\t${Font_Red}Failed (Network Connection)${Font_Suffix}\n"
         return;
     fi
     
-    result=$(cat /tmp/iqiyi | grep 'mod=' | awk '{print $2}' | cut -f2 -d'=' | cut -f1 -d';')
+    result=$(cat ~/iqiyi | grep 'mod=' | awk '{print $2}' | cut -f2 -d'=' | cut -f1 -d';')
     if [ -n "$result" ]; then
 		if [[ "$result" == "ntw" ]]; then
 			result=TW 
 			echo -n -e "\r iQyi Oversea Region:\t\t\t${Font_Green}${result}${Font_Suffix}\n"
-			rm /tmp/iqiyi >/dev/null 2>&1
+			rm ~/iqiyi >/dev/null 2>&1
 			return;
 		else
 			result=$(echo $result | tr [:lower:] [:upper:]) 
 			echo -n -e "\r iQyi Oversea Region:\t\t\t${Font_Green}${result}${Font_Suffix}\n"
-			rm /tmp/iqiyi >/dev/null 2>&1
+			rm ~/iqiyi >/dev/null 2>&1
 			return;
 		fi	
     else
 		echo -n -e "\r iQyi Oversea Region:\t\t\t${Font_Red}Failed${Font_Suffix}\n"
-		rm /tmp/iqiyi >/dev/null 2>&1
+		rm ~/iqiyi >/dev/null 2>&1
 		return;
 	fi	
 }
@@ -1022,7 +1047,7 @@ function MediaUnlockTest_Tiktok_Region(){
 	local STmpresult=$(curl --user-agent "${UA_Browser}" -${1} ${ssll} -s --max-time 10 "https://www.tiktok.com/" -b "s_v_web_id=verify_57c6380f8e4c609135d2afc9894e35ca; tt_csrf_token=73Z-2VskmVwMX0PyUtin6WWI; MONITOR_WEB_ID=verify_57c6380f8e4c609135d2afc9894e35ca")
 	local SRegion=$(echo $STmpresult | grep '"$region":"' | sed 's/.*"$region//' | cut -f3 -d'"')
 	if [ -n "$SRegion" ];then
-        echo -n -e "\r Tiktok Region:\t\t\t\t${Font_Yellow}${SRegion} (Using IDC IP)${Font_Suffix}\n"
+        echo -n -e "\r Tiktok Region:\t\t\t\t${Font_Yellow}${SRegion} (IDC IP Detected)${Font_Suffix}\n"
         return;
 	else	
 		echo -n -e "\r Tiktok Region:\t\t\t\t${Font_Red}Failed${Font_Suffix}\n"
@@ -1085,18 +1110,19 @@ function MediaUnlockTest_YouTube_CDN() {
 		echo -n -e "\r YouTube CDN:\t\t\t\t${Font_Yellow}Associated with $CDN_ISP${Font_Suffix}\n"
 		return;
 	elif [ -n "$iata" ];then
-		curl -s --max-time 10 "https://www.iata.org/AirportCodesSearch/Search?currentBlock=314384&currentPage=12572&airport.search=${iata}" > /tmp/iata.txt
-		local line=$(cat /tmp/iata.txt | grep -n "<td>"$iata | awk '{print $1}' | cut -f1 -d":")
+		curl -s --max-time 10 "https://www.iata.org/AirportCodesSearch/Search?currentBlock=314384&currentPage=12572&airport.search=${iata}" > ~/iata.txt
+		local line=$(cat ~/iata.txt | grep -n "<td>"$iata | awk '{print $1}' | cut -f1 -d":")
 		local nline=$(expr $line - 2)
-		local location=$(cat /tmp/iata.txt | awk NR==${nline} | sed 's/.*<td>//' | cut -f1 -d"<")
+		local location=$(cat ~/iata.txt | awk NR==${nline} | sed 's/.*<td>//' | cut -f1 -d"<")
 		echo -n -e "\r YouTube CDN:\t\t\t\t${Font_Green}$location${Font_Suffix}\n"
+		rm ~/iata.txt
 		return;
 	else
 		echo -n -e "\r YouTube CDN:\t\t\t\t${Font_Red}Undetectable${Font_Suffix}\n"
+		rm ~/iata.txt
 		return;
 	fi
 	
-	rm /tmp/iata.txt
 }
 
 function MediaUnlockTest_BritBox() {
@@ -1885,19 +1911,22 @@ function MediaUnlockTest_NetflixCDN(){
 	
 	local CDN_ISP=$(curl -s --max-time 20 https://api.ip.sb/geoip/$CDNIP | python -m json.tool 2> /dev/null | grep 'isp' | cut -f4 -d'"')
 	local iata=$(echo $CDNAddr | cut -f3 -d"-" | sed 's/.\{3\}$//' | tr [:lower:] [:upper:])
-	curl -s --max-time 10 "https://www.iata.org/AirportCodesSearch/Search?currentBlock=314384&currentPage=12572&airport.search=${iata}" > /tmp/iata.txt
-	local line=$(cat /tmp/iata.txt | grep -n "<td>"$iata | awk '{print $1}' | cut -f1 -d":")
+	curl -s --max-time 10 "https://www.iata.org/AirportCodesSearch/Search?currentBlock=314384&currentPage=12572&airport.search=${iata}" > ~/iata.txt
+	local line=$(cat ~/iata.txt | grep -n "<td>"$iata | awk '{print $1}' | cut -f1 -d":")
 	local nline=$(expr $line - 2)
-	local location=$(cat /tmp/iata.txt | awk NR==${nline} | sed 's/.*<td>//' | cut -f1 -d"<")
+	local location=$(cat ~/iata.txt | awk NR==${nline} | sed 's/.*<td>//' | cut -f1 -d"<")
 	
 	if [ -n "$location" ] && [[ "$CDN_ISP" == "Netflix Streaming Services" ]];then
 		echo -n -e "\r Netflix Preferred CDN:\t\t\t${Font_Green}$location ${Font_Suffix}\n"
+		rm ~/iata.txt
 		return
 	elif [ -n "$location" ] && [[ "$CDN_ISP" != "Netflix Streaming Services" ]];then
 		echo -n -e "\r Netflix Preferred CDN:\t\t\t${Font_Yellow}Associated with [$CDN_ISP] in [$location]${Font_Suffix}\n"
+		rm ~/iata.txt
 		return
 	elif [ -n "$location" ] && [ -z "$CDN_ISP" ];then	
 		echo -n -e "\r Netflix Preferred CDN:\t\t\t${Font_Red}No ISP Info Founded${Font_Suffix}\n"
+		rm ~/iata.txt
 		return
 	fi
 }	
@@ -1964,11 +1993,15 @@ function MediaUnlockTest_SkyGo() {
 
 function MediaUnlockTest_ElevenSportsTW() {
     echo -n -e " Eleven Sports TW:\t\t\t->\c";
-    local result=$(curl --user-agent "${UA_Browser}" -${1} ${ssll} -fsL --write-out %{http_code} --output /dev/null --max-time 10 "https://dv8n4jja5ycl3.cloudfront.net/tsft/ch01/playlist.m3u8?st=1629563333112&qq=YTllMWIxZjkzYjNkODUyZDQzMjQyZGM5ZDgxZGMyYzk4ZGU3MTdhMQ")
+	local tmpresult=$(curl --user-agent "${UA_Browser}" -${1} ${ssll} -s --max-time 10 "https://apis.v-saas.com:9501/member/api/viewAuthorization?contentId=1&memberId=384030&menuId=3&platform=5&imei=c959b475-f846-4a86-8e9b-508048372508")
+	local qq=$(echo $tmpresult | python -m json.tool 2> /dev/null | grep '"qq"' | cut -f4 -d'"')
+	local st=$(echo $tmpresult | python -m json.tool 2> /dev/null | grep '"st"' | cut -f4 -d'"')
+	local m3u_RUL=$(echo $tmpresult | python -m json.tool 2> /dev/null | grep boostStreamUrl | cut -f4 -d'"')
+    local result=$(curl --user-agent "${UA_Browser}" -${1} ${ssll} -fsL --write-out %{http_code} --output /dev/null --max-time 10 "${m3u_RUL}?st=${st}&qq=${qq}")
     if [ "$result" = "000" ]; then
         echo -n -e "\r Eleven Sports TW:\t\t\t${Font_Red}Failed (Network Connection)${Font_Suffix}\n"
 		return;
-    elif [ "$result" = "200" ]; then
+    elif [ "$result" = "401" ]; then
         echo -n -e "\r Eleven Sports TW:\t\t\t${Font_Green}Yes${Font_Suffix}\n"
 		return;
     elif [ "$result" = "403" ]; then
@@ -1995,28 +2028,28 @@ function MediaUnlockTest_StarPlus() {
 	local fakecontent=$(curl -s --max-time 10 "https://raw.githubusercontent.com/lmc999/RegionRestrictionCheck/main/cookies" | sed -n '10p')
 	local refreshToken=$(echo $TokenContent | python -m json.tool 2> /dev/null | grep 'refresh_token' | awk '{print $2}' | cut -f2 -d'"')
     local starcontent=$(echo $fakecontent | sed "s/ILOVESTAR/${refreshToken}/g")
-	local tmpresult=$(curl -${1} -X POST --user-agent "${UA_Browser}" -sSL --max-time 10 "https://star.api.edge.bamgrid.com/graph/v1/device/graphql" -H "authorization: c3RhciZicm93c2VyJjEuMC4w.COknIGCR7I6N0M5PGnlcdbESHGkNv7POwhFNL-_vIdg" -d "$starcontent" 2>&1)
-	local previewcheck=$(curl -s -o /dev/null -L --max-time 10 -w '%{url_effective}\n' "https://www.starplus.com" | grep preview)
-	local isUnabailable=$(echo $previewcheck | grep 'unavailable')	
-    
+	local tmpresult=$(curl -${1} --user-agent "${UA_Browser}" -X POST -sSL --max-time 10 "https://star.api.edge.bamgrid.com/graph/v1/device/graphql" -H "authorization: c3RhciZicm93c2VyJjEuMC4w.COknIGCR7I6N0M5PGnlcdbESHGkNv7POwhFNL-_vIdg" -d "$starcontent" 2>&1)
+	local previewcheck=$(curl -${1} -s -o /dev/null -L --max-time 10 -w '%{url_effective}\n' "https://www.starplus.com/login")
+	local isUnavailable=$(echo $previewcheck | grep unavailable)
+	
     if [[ "$tmpresult" == "curl"* ]];then
         echo -n -e "\r Star+:\t\t\t\t\t${Font_Red}Failed (Network Connection)${Font_Suffix}\n"
         return;
     fi
-	
 	local region=$(echo $tmpresult | python -m json.tool 2> /dev/null | grep 'countryCode' | cut -f4 -d'"')
+    local inSupportedLocation=$(echo $tmpresult | python -m json.tool 2> /dev/null | grep 'inSupportedLocation' | awk '{print $2}' | cut -f1 -d',')
 
-    if [ -n "$region" ] && [ -n "$previewcheck" ] && [ -z "$isUnabailable" ];then
-		echo -n -e "\r Star+:\t\t\t\t\t${Font_Yellow}Available For [Star+ $region] Soon${Font_Suffix}\n"
+    if [ -n "$region" ] && [ -z "$isUnavailable" ] && [[ "$inSupportedLocation" == "false" ]];then
+		echo -n -e "\r Star+:\t\t\t\t\t${Font_Yellow}CDN Relay Available${Font_Suffix}\n"
 		return;
-	elif [ -n "$previewcheck" ] && [ -n "$isUnabailable" ];then
+	elif [ -n "$region" ] && [ -n "$isUnavailable" ];then
 		echo -n -e "\r Star+:\t\t\t\t\t${Font_Red}No${Font_Suffix}\n"
 		return;
-	elif [ -n "$region" ];then
+	elif [ -n "$region" ] && [[ "$inSupportedLocation" == "true" ]];then
 		echo -n -e "\r Star+:\t\t\t\t\t${Font_Green}Yes (Region: $region)${Font_Suffix}\n"
 		return;
-	else
-		echo -n -e "\r Star+:\t\t\t\t\t${Font_Red}Failed${Font_Suffix}\n"
+	elif [ -z "$region" ];then
+		echo -n -e "\r Star+:\t\t\t\t\t${Font_Red}No${Font_Suffix}\n"
 		return;
 	fi
     
@@ -2036,13 +2069,27 @@ function MediaUnlockTest_DirecTVGO() {
 		echo -n -e "\r DriecTV Go:\t\t\t\t${Font_Red}No${Font_Suffix}\n"
 		return;
     elif [ -z "$isForbidden" ] && [ -n "$region" ];then
-		echo -n -e "\r DriecTV Go:\t\t\t\t${Font_Green}Yes (Region:$region)${Font_Suffix}\n"
+		echo -n -e "\r DriecTV Go:\t\t\t\t${Font_Green}Yes (Region: $region)${Font_Suffix}\n"
 		return;
 	fi
 	
 	echo -n -e "\r DriecTV Go:\t\t\t\t${Font_Red}Failed ${Font_Suffix}\n"
 	return;
 
+}
+
+function MediaUnlockTest_DAM() {
+    echo -n -e " Karaoke@DAM:\t\t\t\t->\c";
+    local result=$(curl --user-agent "${UA_Browser}" -${1} -fsL --write-out %{http_code} --output /dev/null --max-time 10 "http://cds1.clubdam.com/vhls-cds1/site/xbox/sample_1.mp4.m3u8")
+	if [[ "$result" == "000" ]]; then
+        echo -n -e "\r Karaoke@DAM:\t\t\t\t${Font_Red}Failed (Network Connection)${Font_Suffix}\n"
+        elif [ "$result" = "200" ]; then
+        echo -n -e "\r Karaoke@DAM:\t\t\t\t${Font_Green}Yes${Font_Suffix}\n"
+        elif [ "$result" = "403" ]; then
+        echo -n -e "\r Karaoke@DAM:\t\t\t\t${Font_Red}No${Font_Suffix}\n"
+    else
+        echo -n -e "\r Karaoke@DAM:\t\t\t\t${Font_Red}Failed (Unexpected Result: $result)${Font_Suffix}\n"
+    fi
 }
 
 function NA_UnlockTest() {
@@ -2144,6 +2191,7 @@ function JP_UnlockTest() {
 	MediaUnlockTest_wowow ${1};
 	MediaUnlockTest_FOD ${1};
 	MediaUnlockTest_Radiko ${1};
+	MediaUnlockTest_DAM ${1};
 	ShowRegion Game
 	MediaUnlockTest_Kancolle ${1};
 	MediaUnlockTest_UMAJP ${1};
@@ -2275,6 +2323,7 @@ function Goodbye(){
 		echo -e "${Font_Yellow}Number of Script Runs for Today：${TodayRunTimes}; Total Number of Script Runs: ${TotalRunTimes} ${Font_Suffix}"
 	else	
 		echo -e "${Font_Green}本次测试已结束，感谢使用此脚本 ${Font_Suffix}";
+		echo -e "${Font_Purple}【检测脚现已适配Termux，可直接在安卓手机安装Termux后运行脚本】${Font_Suffix}"
 		echo -e ""
 		echo -e "${Font_Yellow}检测脚本当天运行次数：${TodayRunTimes}; 共计运行次数：${TotalRunTimes} ${Font_Suffix}"
 	fi	
