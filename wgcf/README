@@ -1,0 +1,78 @@
+
+mkdir wgcf && cd wgcf
+
+# download correct version for your platform
+
+wget -o wgcf http://mk386.github.io/wgcf/wgcf_2.2.9_linux_amd64
+wget -o wgcf http://mk386.github.io/wgcf/wgcf_2.2.9_linux_arm64
+wget -o wgcf http://mk386.github.io/wgcf/wgcf_2.2.9_windows_amd64.exe
+
+
+
+
+# IPv6 only -> to support IPv4 connection
+# --
+
+apt install -y iproute2 openresolv dnsutils wireguard-dkms wireguard-tools
+./wgcf register
+./wgcf generate
+vi wgcf-profile.conf
+
+cp wgcf-profile.conf /etc/wireguard/wgcf.conf
+wg-quick up wgcf
+
+
+crontab -e
+@reboot systemctl restart wg-quick@wgcf
+
+
+--
+[Interface]
+PrivateKey = QP3sTgW7w7ULLNNVbVUIEE+P5sftsKeIBr83rZXYYW8=
+Address = 172.16.0.2/32
+Address = fd01:5ca1:ab1e:8ce1:f8a4:8100:a478:f458/128
+#DNS = 1.1.1.1
+DNS = 2606:4700:4700::1111
+MTU = 1280
+[Peer]
+PublicKey = bmXOC+F1FxEMF9dyiK2H5/1SUtzH0JuVo51h2wPfgyo=
+AllowedIPs = 0.0.0.0/0
+#AllowedIPs = ::/0
+#Endpoint = engage.cloudflareclient.com:2408
+Endpoint = [2606:4700:d0::a29f:c001]:2408
+--
+
+
+
+
+# IPv4 only -> to support IPv6 connection
+# --
+
+apt install -y iproute2 openresolv dnsutils wireguard-dkms wireguard-tools
+./wgcf register
+./wgcf generate
+vi wgcf-profile.conf
+
+cp wgcf-profile.conf /etc/wireguard/wgcf.conf
+wg-quick up wgcf
+
+crontab -e
+@reboot systemctl restart wg-quick@wgcf
+
+
+
+--
+[Interface]
+PrivateKey = gCaN+GLXAdiGly8GWARi7b7ChzFqokhWFOtpuPYpRVw=
+Address = 172.16.0.2/32
+Address = fd01:5ca1:ab1e:8ebe:3a2b:3c01:88f:6147/128
+DNS = 1.1.1.1
+MTU = 1280
+[Peer]
+PublicKey = bmXOC+F1FxEMF9dyiK2H5/1SUtzH0JuVo51h2wPfgyo=
+#AllowedIPs = 0.0.0.0/0
+AllowedIPs = ::/0
+#Endpoint = engage.cloudflareclient.com:2408
+Endpoint = 162.159.192.1:2408
+--
+
