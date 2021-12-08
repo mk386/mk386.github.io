@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Yet Another Bench Script by Mason Rowe
-# Initial Oct 2019; Last update Oct 2021
+# Initial Oct 2019; Last update Dec 2021
 #
 # Disclaimer: This project is a work in progress. Any errors or suggestions should be
 #             relayed to me via the GitHub project page linked below.
@@ -15,7 +15,7 @@
 
 echo -e '# ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## #'
 echo -e '#              Yet-Another-Bench-Script              #'
-echo -e '#                     v2021-10-09                    #'
+echo -e '#                     v2021-12-03                    #'
 echo -e '# https://github.com/masonr/yet-another-bench-script #'
 echo -e '# ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## #'
 
@@ -23,7 +23,13 @@ echo -e
 date
 
 # override locale to eliminate parsing errors (i.e. using commas as delimiters rather than periods)
-export LC_ALL=C
+if locale -a | grep ^C$ > /dev/null ; then
+	# locale "C" installed
+	export LC_ALL=C
+else
+	# locale "C" not installed, display warning
+	echo -e "\nWarning: locale 'C' not detected. Test outputs may not be parsed correctly."
+fi
 
 # determine architecture of host
 ARCH=$(uname -m)
@@ -42,7 +48,7 @@ elif [[ $ARCH = *aarch* || $ARCH = *arm* ]]; then
 		# host is running an ARM 32-bit kernel
 		ARCH="arm"
 	fi
-	echo -e "\nARM-compatibility is considered *experimental*"
+	echo -e "\nARM compatibility is considered *experimental*"
 else
 	# host is running a non-supported kernel
 	echo -e "Architecture not supported by YABS."
@@ -50,12 +56,13 @@ else
 fi
 
 # flags to skip certain performance tests
-unset SKIP_FIO SKIP_IPERF SKIP_GEEKBENCH PRINT_HELP REDUCE_NET GEEKBENCH_4 GEEKBENCH_5 DD_FALLBACK IPERF_DL_FAIL
+unset PREFER_BIN SKIP_FIO SKIP_IPERF SKIP_GEEKBENCH PRINT_HELP REDUCE_NET GEEKBENCH_4 GEEKBENCH_5 DD_FALLBACK IPERF_DL_FAIL
 GEEKBENCH_5="True" # gb5 test enabled by default
 
 # get any arguments that were passed to the script and set the associated skip flags (if applicable)
-while getopts 'fdighr49' flag; do
+while getopts 'bfdighr49' flag; do
 	case "${flag}" in
+		b) PREFER_BIN="True" ;;
 		f) SKIP_FIO="True" ;;
 		d) SKIP_FIO="True" ;;
 		i) SKIP_IPERF="True" ;;
@@ -79,11 +86,12 @@ IPV6_CHECK=$((ping -6 -c 1 -W 4 ipv6.google.com >/dev/null 2>&1 && echo true) ||
 # print help and exit script, if help flag was passed
 if [ ! -z "$PRINT_HELP" ]; then
 	echo -e
-	echo -e "Usage: ./yabs.sh [-fdighr49]"
+	echo -e "Usage: ./yabs.sh [-flags]"
 	echo -e "       curl -sL yabs.sh | bash"
-	echo -e "       curl -sL yabs.sh | bash -s -- -{fdighr49}"
+	echo -e "       curl -sL yabs.sh | bash -s -- -{bfdighr49}"
 	echo -e
 	echo -e "Flags:"
+	echo -e "       -b : prefer pre-compiled binaries from repo over local packages"
 	echo -e "       -f/d : skips the fio disk benchmark test"
 	echo -e "       -i : skips the iperf network test"
 	echo -e "       -g : skips the geekbench performance test"
@@ -98,6 +106,7 @@ if [ ! -z "$PRINT_HELP" ]; then
 	echo -e "Detected Arch: $ARCH"
 	echo -e
 	echo -e "Detected Flags:"
+	[[ ! -z $PREFER_BIN ]] && echo -e "       -b, force using precompiled binaries from repo"
 	[[ ! -z $SKIP_FIO ]] && echo -e "       -f/d, skipping fio disk benchmark test"
 	[[ ! -z $SKIP_IPERF ]] && echo -e "       -i, skipping iperf network test"
 	[[ ! -z $SKIP_GEEKBENCH ]] && echo -e "       -g, skipping geekbench test"
@@ -107,9 +116,11 @@ if [ ! -z "$PRINT_HELP" ]; then
 	echo -e
 	echo -e "Local Binary Check:"
 	[[ -z $LOCAL_FIO ]] && echo -e "       fio not detected, will download precompiled binary" ||
-		echo -e "       fio detected, using local package"
+		[[ -z $PREFER_BIN ]] && echo -e "       fio detected, using local package" ||
+		echo -e "       fio detected, but using precompiled binary instead"
 	[[ -z $LOCAL_IPERF ]] && echo -e "       iperf3 not detected, will download precompiled binary" ||
-		echo -e "       iperf3 detected, using local package"
+		[[ -z $PREFER_BIN ]] && echo -e "       iperf3 detected, using local package" ||
+		echo -e "       iperf3 detected, but using precompiled binary instead"
 	echo -e
 	echo -e "Detected Connectivity:"
 	[[ ! -z $IPV4_CHECK ]] && echo -e "       IPv4 connected" ||
@@ -428,14 +439,14 @@ elif [ -z "$SKIP_FIO" ]; then
 	DISK_PATH=$YABS_PATH/disk
 	mkdir -p $DISK_PATH
 
-	if [ ! -z "$LOCAL_FIO" ]; then # local fio has been detected, use instead of pre-compiled binary
+	if [[ -z "$PREFER_BIN" && ! -z "$LOCAL_FIO" ]]; then # local fio has been detected, use instead of pre-compiled binary
 		FIO_CMD=fio
 	else
 		# download fio binary
 		if [ ! -z "$IPV4_CHECK" ]; then # if IPv4 is enabled
-			curl -s -4 --connect-timeout 5 --retry 5 --retry-delay 0 https://raw.githubusercontent.com/masonr/yet-another-bench-script/master/bin/fio_$ARCH -o $DISK_PATH/fio
+			curl -s -4 --connect-timeout 5 --retry 5 --retry-delay 0 https://raw.githubusercontent.com/masonr/yet-another-bench-script/master/bin/fio/fio_$ARCH -o $DISK_PATH/fio
 		else # no IPv4, use IPv6 - below is necessary since raw.githubusercontent.com has no AAAA record
-			curl -s -6 --connect-timeout 5 --retry 5 --retry-delay 0 -k -g --header 'Host: raw.githubusercontent.com' https://[2a04:4e42::133]/masonr/yet-another-bench-script/master/bin/fio_$ARCH -o $DISK_PATH/fio
+			curl -s -6 --connect-timeout 5 --retry 5 --retry-delay 0 -k -g --header 'Host: raw.githubusercontent.com' https://[2a04:4e42::133]/masonr/yet-another-bench-script/master/bin/fio/fio_$ARCH -o $DISK_PATH/fio
 		fi
 
 		if [ ! -f "$DISK_PATH/fio" ]; then # ensure fio binary download successfully
@@ -621,7 +632,7 @@ function launch_iperf {
 # if the skip iperf flag was set, skip the network performance test, otherwise test network performance
 if [ -z "$SKIP_IPERF" ]; then
 
-	if [ ! -z "$LOCAL_IPERF" ]; then # local iperf has been detected, use instead of pre-compiled binary
+	if [[ -z "$PREFER_BIN" && ! -z "$LOCAL_IPERF" ]]; then # local iperf has been detected, use instead of pre-compiled binary
 		IPERF_CMD=iperf3
 	else
 		# create a temp directory to house the required iperf binary and library
@@ -630,9 +641,9 @@ if [ -z "$SKIP_IPERF" ]; then
 
 		# download iperf3 binary
 		if [ ! -z "$IPV4_CHECK" ]; then # if IPv4 is enabled
-			curl -s -4 --connect-timeout 5 --retry 5 --retry-delay 0 https://raw.githubusercontent.com/masonr/yet-another-bench-script/master/bin/iperf3_$ARCH -o $IPERF_PATH/iperf3
+			curl -s -4 --connect-timeout 5 --retry 5 --retry-delay 0 https://raw.githubusercontent.com/masonr/yet-another-bench-script/master/bin/iperf/iperf3_$ARCH -o $IPERF_PATH/iperf3
 		else # no IPv4, use IPv6 - below is necessary since raw.githubusercontent.com has no AAAA record
-			curl -s -6 --connect-timeout 5 --retry 5 --retry-delay 0 -k -g --header 'Host: raw.githubusercontent.com' https://[2a04:4e42::133]/masonr/yet-another-bench-script/master/bin/iperf3_$ARCH -o $IPERF_PATH/iperf3
+			curl -s -6 --connect-timeout 5 --retry 5 --retry-delay 0 -k -g --header 'Host: raw.githubusercontent.com' https://[2a04:4e42::133]/masonr/yet-another-bench-script/master/bin/iperf/iperf3_$ARCH -o $IPERF_PATH/iperf3
 		fi
 
 		if [ ! -f "$IPERF_PATH/iperf3" ]; then # ensure iperf3 binary downloaded successfully
@@ -735,9 +746,9 @@ function launch_geekbench {
 			echo -en "\nRunning GB5 benchmark test... *cue elevator music*"
 			# download the latest Geekbench 5 tarball and extract to geekbench temp directory
 			if [[ $ARCH = *aarch64* || $ARCH = *arm* ]]; then
-				curl -s https://cdn.geekbench.com/Geekbench-5.4.1-LinuxARMPreview.tar.gz  | tar xz --strip-components=1 -C $GEEKBENCH_PATH &>/dev/null
+				curl -s https://cdn.geekbench.com/Geekbench-5.4.3-LinuxARMPreview.tar.gz  | tar xz --strip-components=1 -C $GEEKBENCH_PATH &>/dev/null
 			else
-				curl -s https://cdn.geekbench.com/Geekbench-5.4.1-Linux.tar.gz | tar xz --strip-components=1 -C $GEEKBENCH_PATH &>/dev/null
+				curl -s https://cdn.geekbench.com/Geekbench-5.4.3-Linux.tar.gz | tar xz --strip-components=1 -C $GEEKBENCH_PATH &>/dev/null
 			fi
 
 			# check if geekbench file exists
