@@ -8,3 +8,8 @@ curl -sL https://raw.githubusercontent.com/K4Y5/ServerBench/master/serverbench.s
 
 curl -sL https://raw.githubusercontent.com/Aniverse/A/i/a > Aniverse.sh
 
+
+# bash <(curl -Lso- https://git.io/superspeed)
+curl -Lso- https://git.io/superspeed > superspeed.sh
+
+
