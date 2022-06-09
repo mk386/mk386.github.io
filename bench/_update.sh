@@ -12,4 +12,6 @@ curl -sL https://raw.githubusercontent.com/Aniverse/A/i/a > Aniverse.sh
 # bash <(curl -Lso- https://git.io/superspeed)
 curl -Lso- https://git.io/superspeed > superspeed.sh
 
+# wget -qO- sb.oldking.net | bash
+curl -sL sb.oldking.net > superbench.sh
 
