@@ -15,3 +15,6 @@ curl -Lso- https://git.io/superspeed > superspeed.sh
 # wget -qO- sb.oldking.net | bash
 curl -sL sb.oldking.net > superbench.sh
 
+# bash <(wget -qO- git.io/ceshi) -j
+curl -sL git.io/ceshi > ceshi.sh
+
