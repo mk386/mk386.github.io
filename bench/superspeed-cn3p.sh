@@ -277,7 +277,7 @@ runtest() {
 }
 
 runall() {
-	checkroot;
+	#checkroot;
 	checksystem;
 	checkpython;
 	checkcurl;
