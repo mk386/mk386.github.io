@@ -34,11 +34,11 @@ while [ "$1" != "" ]; do
 done
 
 # Download script
-curl -o /usr/local/bin/update-cloudflare-dns http://mk386.github.io/script/cf-ddns/update-cloudflare-dns
+curl -o /usr/local/bin/update-cloudflare-dns https://mk386.github.io/script/cf-ddns/update-cloudflare-dns
 chmod +x /usr/local/bin/update-cloudflare-dns
 
 # Download configuration file
-curl -o /usr/local/bin/update-cloudflare-dns.conf http://mk386.github.io/script/cf-ddns/update-cloudflare-dns.conf
+curl -o /usr/local/bin/update-cloudflare-dns.conf https://mk386.github.io/script/cf-ddns/update-cloudflare-dns.conf
 
 # Update configuration file with provided parameters
 [ -n "$DNS_RECORD" ] && sed -i "s/(DNS_RECORD)/$DNS_RECORD/" /usr/local/bin/update-cloudflare-dns.conf
