@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 export PATH=/sbin:/opt/bin:/usr/local/bin:/usr/contrib/bin:/bin:/usr/bin:/usr/sbin:/usr/bin/X11
 
-###  Create .update-cloudflare-dns.log file of the last run for debug
+### Create .update-cloudflare-dns.log file of the last run for debug
 parent_path="$(dirname "${BASH_SOURCE[0]}")"
 FILE=${parent_path}/update-cloudflare-dns.log
 if ! [ -x "$FILE" ]; then
@@ -44,6 +44,20 @@ if [ "${what_ip}" == "internal" ] && [ "${proxied}" == "true" ]; then
   exit 0
 fi
 
+### List of IPs to exclude
+EXCLUDED_IPS=("127.0.0.1" "192.168.1.1")
+
+### Function to check if IP is in excluded list
+is_excluded_ip() {
+    local ip=$1
+    for excluded in "${EXCLUDED_IPS[@]}"; do
+        if [ "$ip" = "$excluded" ]; then
+            return 0 # IP is excluded
+        fi
+    done
+    return 1 # IP is not excluded
+}
+
 ### Get External ip from https://checkip.amazonaws.com
 if [ "${what_ip}" == "external" ]; then
   ip=$(curl -s -X GET https://checkip.amazonaws.com --max-time 10)
@@ -74,9 +88,15 @@ if [ "${what_ip}" == "internal" ]; then
   echo "==> Internal ${interface} IP is: $ip"
 fi
 
+### Check if IP is excluded
+if is_excluded_ip "$ip"; then
+    echo "==> IP ${ip} is in excluded list, skipping update"
+    exit 0
+fi
+
 ### Get IP address of DNS record from 1.1.1.1 DNS server when proxied is "false"
 if [ "${proxied}" == "false" ]; then
-  ### Check if "nsloopup" command is present
+  ### Check if "nslookup" command is present
   if which nslookup >/dev/null; then
     dns_record_ip=$(nslookup ${dns_record} 1.1.1.1 | awk '/Address/ { print $2 }' | sed -n '2p')
   else
@@ -106,7 +126,6 @@ if [ "${proxied}" == "true" ]; then
 fi
 
 ### Check if ip or proxy have changed
-
 if [ ${dns_record_ip} == ${ip} ] && [ ${is_proxed} == ${proxied} ]; then
   echo "==> DNS record IP of ${dns_record} is ${dns_record_ip}", no changes needed. Exiting...
   exit
@@ -148,7 +167,7 @@ fi
 
 if [ ${notify_me_telegram} == "yes" ]; then
   telegram_notification=$(
-    curl -4 -s -X GET "https://api.telegram.org/bot${telegram_bot_API_Token}/sendMessage?chat_id=${telegram_chat_id}" --data-urlencode "text=${dns_record} DNS record updated to: ${ip}"
+    curl -4 -s -X GET "https://api.telegram.org/bot${telegram_bot_API_Token}/sendMessage?chat_id=${telegram_chat_id}" --data-urlencode "text=${dns_record} => ${ip}"
   )
   if [[ ${telegram_notification=} == *"\"ok\":false"* ]]; then
     echo ${telegram_notification=}
