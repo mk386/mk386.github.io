@@ -53,7 +53,7 @@ sudo chown root:root "$SECRETS_FILE"
 
 # Test gost command
 echo "Testing gost command..."
-TEST_COMMAND="/snap/bin/gost -L=http://:$PORT?secrets=$SECRETS_FILE -D"
+TEST_COMMAND="/snap/bin/gost -L=:$PORT?secrets=$SECRETS_FILE -D"
 # Run command with timeout to ensure it exits
 sudo timeout 10 $TEST_COMMAND >/dev/null 2>&1 & TEST_PID=$!
 echo "Test process PID: $TEST_PID"
