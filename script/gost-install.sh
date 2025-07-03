@@ -105,7 +105,7 @@ After=network.target
 
 [Service]
 Type=simple
-ExecStart=/snap/bin/gost -L=http://:$PORT?secrets=$SECRETS_FILE -D
+ExecStart=/snap/bin/gost -L=:$PORT?secrets=$SECRETS_FILE -D
 Restart=on-failure
 RestartSec=5
 User=root
