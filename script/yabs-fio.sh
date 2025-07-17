@@ -11,7 +11,7 @@ YABS_VERSION="v2025-04-20 (FIO-only)"
 echo -e '# ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## #'
 echo -e '#              Yet-Another-Bench-Script              #'
 echo -e '#                   (FIO-only)                       #'
-echo -e '#                     '$YABS_VERSION'                    #'
+echo -e '#                     '$YABS_VERSION'              #'
 echo -e '# https://github.com/masonr/yet-another-bench-script #'
 echo -e '# ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## #'
 
