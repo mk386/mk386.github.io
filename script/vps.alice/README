@@ -1,0 +1,64 @@
+# https://www.nodeseek.com/post-369093-1
+
+> @hkfires [#0](https://www.nodeseek.com/post-369093-1#0) 发布于6/19/2025, 9:00:28 PM，编辑于7/2/2025, 6:21:45 PM
+> > 之前发过帖子[【技术】Alice IPv6 Only 免费机一键添加IPv4出口（非WARP）](https://www.nodeseek.com/post-295364-1)，现在过去3个月了，这期间家宽出口打赢复活赛，降低了门槛，增加了出口，趁着这次Alice又发了两拨新V6免费机，做个教程
+> > 由于论坛帖子时间长了就不能编辑了，后续更新可以到Github上查看：https://github.com/hkfires/onekey-tun2socks
+> 
+> > 更新日志：
+> v1.0.8 无聊的重构
+> v1.0.7 下载tun2socks时使用自建DNS64/NAT64服务器，确保服务可控（仅Alice机型可用）
+> v1.0.6 无聊的更新（重构了一些函数）
+> v1.0.5 新增备用DNS64服务器组（@baipiaoking88）
+> v1.0.4 修复原先systemd中的错误，并在启用tun设备后增加1秒延时（@baipiaoking88）
+> v1.0.3 解决无IPv4的机子'RTNETLINK answers: Network is unreachable'报错（其实报错也无影响）
+> v1.0.2 更新Alice出口（移除香港机房IP）
+> 
+> # 注意事项
+> - **脚本仅在Debian12环境下测试通过，其他环境请自行调整**
+> - **使用前，确保你的DNS是面板上提供的IPv6的DNS（可以兼顾DNS解锁）**
+> - **使用出口的方式有很多种，本文只提供通过一键脚本快速实现全局出口的方法，加代理出口的不在本文讨论范围**
+> 
+> # 一键运行脚本
+> ```
+> curl -L https://raw.githubusercontent.com/hkfires/onekey-tun2socks/main/onekey-tun2socks.sh -o onekey-tun2socks.sh && chmod +x onekey-tun2socks.sh && sudo ./onekey-tun2socks.sh -i alice
+> ```
+> ## 看到如下提示时输入数字1-6后回车，前2个是机房出口，后4个是家宽出口
+> ![](https://img.072899.xyz/2025/06/0a6d857428a5d07ea9c90212bdf5c8f1.png)
+> 
+> ## 出现下图就是添加成功
+> ![](https://img.072899.xyz/2025/06/68d5399fac27687113ed22d8ed292bce.png)
+> 
+> ## 测试
+> 运行`curl -4 ipinfo.io`，有输出IP地址就是正常，**如果这里卡住，请检查DNS是否为IPv6的DNS**
+> ![](https://img.072899.xyz/2025/06/e40e4296d104f397cf5256c26f922a52.png)
+> 
+> # 切换出口
+> 输入`./onekey-tun2socks.sh -s`就可以进行出口重新选择
+> ![](https://img.072899.xyz/2025/06/451a7f085928675cefafa1af1436d24b.png)
+> 
+> # 脚本其他的使用
+> 首次使用后，后续就可以直接运行`./onekey-tun2socks.sh`来进行调整了，直接看使用说明就行了
+> ```
+> 使用方法: ./onekey-tun2socks.sh [选项]
+> 选项:
+>   -i, --install    安装 tun2socks (可选参数: alice 或 legend)
+>   -r, --remove     卸载 tun2socks
+>   -s, --switch     切换 Alice 模式的 Socks5 端口 (如果已安装)
+>   -u, --update     检查并更新脚本
+>   -h, --help       显示此帮助信息
+> 
+> 示例:
+>   ./onekey-tun2socks.sh -i alice    安装 Alice 版本的 tun2socks
+>   ./onekey-tun2socks.sh -i legend   安装 Legend 版本的 tun2socks
+>   ./onekey-tun2socks.sh -r          卸载 tun2socks
+>   ./onekey-tun2socks.sh -s          切换 Alice 模式的 Socks5 端口
+>   ./onekey-tun2socks.sh -u          检查脚本更新
+> ```
+> 
+> # 问题解决
+> 出现任何问题的，运行`./onekey-tun2socks.sh -r`，重启后再运行`./onekey-tun2socks.sh -i`重新来过
+
+
+
+
+
