@@ -169,6 +169,7 @@ Wants=network-online.target
 Type=simple
 User=$SYS_USER
 Group=$SYS_USER
+AmbientCapabilities=CAP_NET_BIND_SERVICE
 # Run in foreground, systemd handles logging
 ExecStart=$BINARY_PATH --config $CONFIG_FILE
 Restart=on-failure
